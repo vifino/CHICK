@@ -66,8 +66,9 @@
 
   ;; input logic
   (define (readline con)
-    (read-line (sirc:connection-in con)))
-  (define-constant ircregex (regexp "^(:[^ ]*)? ?([A-Z]+) ([\\w# ]+)?(:.*)?$"))
+    (parameterize ([tcp-read-timeout #f])
+      (read-line (sirc:connection-in con))))
+  (define-constant ircregex (regexp "^(:[^ ]*)? ?(\\w+) ([^:]+)?(:.*)?$"))
   (define (sirc:receive con)
     (let ([parsed (string-match ircregex (readline con))])
       (if parsed

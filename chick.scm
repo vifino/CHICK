@@ -14,16 +14,15 @@
 
 (sirc:connect conn)
 
-(sirc:join conn "#V")
-
 ;; todo: loop over messages
 (define (mainloop)
-  (let ([parsed (sirc:recieve conn)])
-    (print parsed)
+  (let ([parsed (sirc:receive conn)])
     (match parsed
       [(#f "PING" msg) (sirc:send conn "PONG :~A" msg)]
-      [(from "PRIVMSG" to msg) (printf "~A wrote to ~A: ~A" from to msg)]
-      [(from "NOTICE" to msg) (printf "Notice ~A to ~A: ~A" from to msg)]))
+      [(from "PRIVMSG" to msg) (printf "~A wrote to ~A: ~A\n" from to msg)]
+      [(from "NOTICE" to msg) (printf "Notice ~A to ~A: ~A\n" from to msg)]
+      [(_ "376" _ ...) (sirc:join conn "#V")]
+      [_ (printf "Unknown message: ~A\n" parsed) ]))
   (mainloop))
 
 (mainloop)
