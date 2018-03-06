@@ -13,7 +13,6 @@
   (import scheme chicken)
   (use tcp srfi-1 data-structures regex srfi-13 extras posix)
 
-
   (define-record sirc:connection
     server ; string
     port ; int
@@ -42,8 +41,7 @@
       (fprintf (sirc:connection-out con) "~A\r\n"
                (string-take
                 (car (string-split str "\r\n"))
-                (min 512 (string-length str)))
-      str)))
+                (min 512 (string-length str))))))
 
   (define sirc:send send)
 

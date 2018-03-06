@@ -24,6 +24,6 @@
                                      environment: sbox-env
                                      fuel: sbox-fuel
                                      allocation-limit: sbox-alim)])
-                 (if (string? res)
+                 (if (or (string? res) (procedure? res))
                      (wrt res)
                      res)))))))

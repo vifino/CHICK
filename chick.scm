@@ -4,7 +4,7 @@
 (use inclub)
 (inclub "sirc")
 (import sirc)
-(require-extension matchable srfi-13 data-structures fmt srfi-69 regex)
+(require-extension matchable srfi-13 data-structures fmt srfi-69 regex srfi-18)
 
 (define conn
   (sirc:connection "irc.esper.net" nick: "CHICK"))
@@ -60,7 +60,10 @@
         (let ([command (second parsed)]
               [args (third parsed)])
           (if (hash-table-exists? commands command)
-                ((hash-table-ref commands command) reply args who)
+              (thread-start! ; green threads, yay!
+               (make-thread
+                (lambda ()
+                  ((hash-table-ref commands command) reply args who))))
                 (reply (format "No such command: ~A" command)))))))
 
 ;; command definitions
