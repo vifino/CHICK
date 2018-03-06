@@ -4,30 +4,27 @@
 (use inclub)
 (inclub "sirc")
 (import sirc)
-(require-extension matchable srfi-13 data-structures fmt)
+(require-extension matchable srfi-13 data-structures fmt srfi-69 regex)
 
 (define conn
   (sirc:connection "irc.esper.net" nick: "CHICK"))
-
-(define (test _)
-  (sirc:say conn "#V" "test lol"))
-
-(sirc:connect conn)
 
 ;; display a message nicely.
 (define (fmthost host)
   (car (string-split (string-trim host #\:) "!")))
 (define (fmtmsg parsed)
   (match parsed
-    [(from "PRIVMSG" to msg) (printf "~A -> ~A: ~A\n" (fmthost from) to msg)]
-    [(from "NOTICE" to msg) (printf "Notice ~A -> ~A: ~A\n" (fmthost from) to msg)]
-    [(who "JOIN" chan) (printf "~A joined ~A\n" (fmthost who) chan)]
-    [(who "PART" chan) (printf "~A left ~A\n" (fmthost who) chan)]
-    [(who "PART" chan msg) (printf "~A left ~A: ~A\n" (fmthost who) chan msg)]
-    [(who "MODE" whom mode) (printf "~A sets mode ~A ~A\n" (fmthost who) mode whom)]
+    [(from "PRIVMSG" to msg) (printf "[~A] ~A: ~A\n" to (fmthost from) msg)]
+    [(from "NOTICE" to msg) (printf "[~A] Notice from ~A: ~A\n" to (fmthost from) msg)]
+    [(who "JOIN" chan) (printf "[~A] ~A joined\n" chan (fmthost who))]
+    [(who "PART" chan) (printf "[~A] ~A left\n" chan (fmthost who))]
+    [(who "PART" chan msg) (printf "[~A] ~A left: ~A\n" chan (fmthost who) msg)]
+    [(who "MODE" whom mode) (printf "~A sets umode ~A ~A\n" (fmthost who) mode whom)]
+    [(who "MODE" chan whom mode) (printf "[~A] ~A sets mode ~A ~A\n" chan (fmthost who) mode whom)]
 
     [(_ "332" _ chan topic) (printf "Topic of ~A: ~A\n" chan topic)]
     [(_ "333" _ chan who ts) (printf "Topic of ~A set by ~A\n" chan (fmthost who))] ;; todo: parse timestamp
+    [(who "TOPIC" chan topic) (printf "[~A] ~A changed topic to: ~A\n" chan (fmthost who) topic)]
 
     [(_ "353" _ _ chan names) (printf "Names of ~A: ~A\n" chan names)] ;; todo: format and order
     [(_ "366" _ ...) '()]
@@ -54,16 +51,45 @@
 
     [_ (fmt #t "Unknown message: " parsed nl) ]))
 
+;; parse commands
+(define commands (make-hash-table))
+(define cmdregex (regexp "^([^ ]+) *(.*)$"))
+(define (parsecmd cmd reply who)
+  (let ([parsed (string-match cmdregex cmd)])
+    (if parsed
+        (let ([command (second parsed)]
+              [args (third parsed)])
+          (if (hash-table-exists? commands command)
+                ((hash-table-ref commands command) reply args who)
+                (reply (format "No such command: ~A" command)))))))
+
+;; command definitions
+(define (defcmd name proc)
+  (hash-table-set! commands name proc))
+
+(inclub "cmds/basic")
+(inclub "cmds/sandbox")
+
 ;; main loop
+(define-constant cmdprefix ">")
 (define (mainloop)
   (let ([parsed (sirc:receive conn)])
     (fmtmsg parsed)
     (match parsed
       [(#f "PING" msg) (sirc:send conn "PONG :~A" msg)]
       [(_ "376" _ _) (sirc:join conn "#V")]
+      [(who "PRIVMSG" to msg)
+       (if (string-prefix? cmdprefix msg)
+           (parsecmd
+            (string-drop msg (string-length cmdprefix))
+            (lambda (txt)
+              (printf "Reply to ~A: ~A\n" to txt)
+              (sirc:msg conn to txt))
+            (fmthost who)))]
       [_ '()]))
   (mainloop))
 
+;; entry point
+(sirc:connect conn)
 (mainloop)
-
 (sirc:disconnect conn "Goodbye.")

@@ -39,8 +39,11 @@
     (let ([str (apply sprintf fmt args)])
       (unless (sirc:connected? con)
         (error "not connected" con))
-      (fprintf (sirc:connection-out con) "~A\r\n" str)
-      str))
+      (fprintf (sirc:connection-out con) "~A\r\n"
+               (string-take
+                (car (string-split str "\r\n"))
+                (min 512 (string-length str)))
+      str)))
 
   (define sirc:send send)
 
@@ -68,7 +71,7 @@
   (define (readline con)
     (parameterize ([tcp-read-timeout #f])
       (read-line (sirc:connection-in con))))
-  (define-constant ircregex (regexp "^(:[^ ]*)? ?(\\w+) ([^:]+)?(:.*)?$"))
+  (define ircregex (regexp "^(:[^ ]*)? ?(\\w+) ([^:]+)?(:.*)?$"))
   (define (sirc:receive con)
     (let ([parsed (string-match ircregex (readline con))])
       (if parsed
