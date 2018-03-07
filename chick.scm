@@ -51,7 +51,29 @@
 
     [_ (fmt #t "Unknown message: " parsed nl) ]))
 
+;; hooks
+(define hooks (make-hash-table))
+(define (add-hook type proc) ;; adds to the proc list
+  (hash-table-set!
+   hooks type
+   (cons proc (hash-table-ref/default hooks type '()))))
+
+(define (call-hook type . args)
+  (if (hash-table-exists? hooks type)
+      (let ([fn
+             (lambda (self cmds)
+               (if (not (eq? cmds '()))
+                   (begin
+                     (thread-start! ; green threading, yay!
+                      (make-thread
+                       (lambda () (apply (car cmds) args))))
+                     (self self (cdr cmds)))))])
+        (fn fn (hash-table-ref hooks type)))))
+
+
 ;; parse commands
+(define-constant cmdprefix ";")
+
 (define commands (make-hash-table))
 (define cmdregex (regexp "^([^ ]+) *(.*)$"))
 (define (parsecmd cmd reply who)
@@ -60,11 +82,18 @@
         (let ([command (second parsed)]
               [args (third parsed)])
           (if (hash-table-exists? commands command)
-              (thread-start! ; green threads, yay!
-               (make-thread
-                (lambda ()
-                  ((hash-table-ref commands command) reply args who))))
-                (reply (format "No such command: ~A" command)))))))
+              ((hash-table-ref commands command) reply args who)
+              (reply (format "No such command: ~A" command)))))))
+
+(add-hook 'msg
+          (lambda (from to msg)
+            (if (string-prefix? cmdprefix msg)
+                (parsecmd
+                 (string-drop msg (string-length cmdprefix))
+                 (lambda (txt)
+                   (printf "Reply to ~A: ~A\n" to txt)
+                   (sirc:msg conn to txt))
+                 (fmthost from)))))
 
 ;; command definitions
 (define (defcmd name proc)
@@ -74,21 +103,13 @@
 (inclub "cmds/sandbox")
 
 ;; main loop
-(define-constant cmdprefix ">")
 (define (mainloop)
   (let ([parsed (sirc:receive conn)])
     (fmtmsg parsed)
     (match parsed
       [(#f "PING" msg) (sirc:send conn "PONG :~A" msg)]
       [(_ "376" _ _) (sirc:join conn "#V")]
-      [(who "PRIVMSG" to msg)
-       (if (string-prefix? cmdprefix msg)
-           (parsecmd
-            (string-drop msg (string-length cmdprefix))
-            (lambda (txt)
-              (printf "Reply to ~A: ~A\n" to txt)
-              (sirc:msg conn to txt))
-            (fmthost who)))]
+      [(who "PRIVMSG" to msg) (call-hook 'msg who to msg)]
       [_ '()]))
   (mainloop))
 

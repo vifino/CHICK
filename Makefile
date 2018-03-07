@@ -5,6 +5,7 @@ CSCFLAGS ?= -O3 -lfa2
 CSI ?= csi
 
 TARGET = CHICK
+all: $(TARGET)
 
 # broken?
 %.o: %.scm
