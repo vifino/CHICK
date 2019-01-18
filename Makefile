@@ -8,14 +8,14 @@ TARGET = CHICK
 all: $(TARGET)
 
 # broken?
-%.o: %.scm
-	$(CSC) $(CSCFLAGS)	-c $^
+.scm.o:
+	$(CSC) $(CSCFLAGS)	-o $@ -c $<
 
 $(TARGET): chick.scm
-	$(CSC) $(CSCFLAGS)	-o $@	$^
+	$(CSC) $(CSCFLAGS)	-o $@ chick.scm
 
 interp: chick.scm
-	$(CSI) -s $^
+	$(CSI) -s chick.scm
 run: $(TARGET)
 	./$(TARGET)
 .PHONY: interp run

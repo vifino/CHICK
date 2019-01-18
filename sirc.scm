@@ -10,8 +10,8 @@
                            sirc:join sirc:part sirc:nick
                            sirc:msg sirc:notice
                            sirc:send-ctcp sirc:action)
-  (import scheme chicken)
-  (use tcp srfi-1 data-structures regex srfi-13 extras posix)
+
+  (import (chicken tcp) srfi-1 regex srfi-13 (chicken file posix) records)
 
   (define-record sirc:connection
     server ; string

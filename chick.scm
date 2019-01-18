@@ -1,10 +1,8 @@
 ;; Chick: IRC bot in Chicken.
 ;; -*- geiser-scheme-implementation: chicken -*-
 
-(use inclub)
-(inclub "sirc")
-(import sirc)
-(require-extension matchable srfi-13 data-structures fmt srfi-69 regex srfi-18)
+(include "sirc")
+(require-extension matchable srfi-13 fmt srfi-69 regex srfi-18)
 
 (define conn
   (sirc:connection "irc.esper.net" nick: "CHICK"))
@@ -19,6 +17,7 @@
     [(who "JOIN" chan) (printf "[~A] ~A joined\n" chan (fmthost who))]
     [(who "PART" chan) (printf "[~A] ~A left\n" chan (fmthost who))]
     [(who "PART" chan msg) (printf "[~A] ~A left: ~A\n" chan (fmthost who) msg)]
+    [(who "QUIT" reason) (printf "~A quit: ~A\n" who reason)]
     [(who "MODE" whom mode) (printf "~A sets umode ~A ~A\n" (fmthost who) mode whom)]
     [(who "MODE" chan whom mode) (printf "[~A] ~A sets mode ~A ~A\n" chan (fmthost who) mode whom)]
 
@@ -74,7 +73,7 @@
 ;; parse commands
 (define-constant cmdprefix ";")
 
-(define commands (make-hash-table))
+(define commands (make-hash-table string=?))
 (define cmdregex (regexp "^([^ ]+) *(.*)$"))
 (define (parsecmd cmd reply who)
   (let ([parsed (string-match cmdregex cmd)])
@@ -92,15 +91,15 @@
                  (string-drop msg (string-length cmdprefix))
                  (lambda (txt)
                    (printf "Reply to ~A: ~A\n" to txt)
-                   (sirc:msg conn to txt))
+                   (sirc:msg conn (if (string-prefix? "#" to) to (fmthost from)) txt))
                  (fmthost from)))))
 
 ;; command definitions
 (define (defcmd name proc)
   (hash-table-set! commands name proc))
 
-(inclub "cmds/basic")
-(inclub "cmds/sandbox")
+(include "cmds/basic")
+(include "cmds/sandbox")
 
 ;; main loop
 (define (mainloop)
@@ -110,6 +109,11 @@
       [(#f "PING" msg) (sirc:send conn "PONG :~A" msg)]
       [(_ "376" _ _) (sirc:join conn "#V")]
       [(who "PRIVMSG" to msg) (call-hook 'msg who to msg)]
+      [(who "JOIN" chan) (call-hook 'join who chan)]
+      [(who "PART" chan) (call-hook 'part who chan)]
+      [(who "PART" chan msg) (call-hook 'part who chan msg)]
+      [(who "MODE" chan whom mode) (call-hook 'cmode chan who whom mode)] ;; note the order
+      [(who "QUIT" reason) (call-hook 'quit who reason)]
       [_ '()]))
   (mainloop))
 
