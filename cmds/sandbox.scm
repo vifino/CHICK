@@ -1,7 +1,9 @@
 ;; Sandbox for CHICK.
 ;; -*- geiser-scheme-implementation: chicken -*-
 
-(require-extension sandbox fmt)
+(import (chicken condition)
+        (chicken port)
+        sandbox fmt)
 
 (define (sexp str)
   (call-with-input-string str read))

@@ -11,7 +11,13 @@
                            sirc:msg sirc:notice
                            sirc:send-ctcp sirc:action)
 
-  (import (chicken tcp) srfi-1 regex srfi-13 (chicken file posix) records)
+  (import (scheme) (chicken base))
+  (import (chicken tcp)
+          (chicken file posix) 
+          (chicken format)
+          (chicken io)
+          (chicken string)
+          srfi-1 srfi-13 regex records)
 
   (define-record sirc:connection
     server ; string

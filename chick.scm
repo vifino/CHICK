@@ -2,8 +2,11 @@
 ;; -*- geiser-scheme-implementation: chicken -*-
 
 (include "sirc")
-(require-extension matchable srfi-13 fmt srfi-69 regex srfi-18)
-
+(import sirc)
+(import matchable srfi-13 fmt srfi-69 regex srfi-18 format)
+(import (chicken string)
+        (chicken io)
+        (chicken format))
 (define conn
   (sirc:connection "irc.esper.net" nick: "CHICK"))
 
@@ -78,8 +81,8 @@
 (define (parsecmd cmd reply who)
   (let ([parsed (string-match cmdregex cmd)])
     (if parsed
-        (let ([command (second parsed)]
-              [args (third parsed)])
+        (let ([command (cadr parsed)]
+              [args (cadr (cdr parsed))])
           (if (hash-table-exists? commands command)
               ((hash-table-ref commands command) reply args who)
               (reply (format "No such command: ~A" command)))))))
